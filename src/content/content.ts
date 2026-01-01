@@ -1,5 +1,13 @@
-import type { LinkedInUser, LinkedInOrg, LinkedInEntity, ExtensionMessage, TagList, StorageData } from "../types";
-import { DEFAULT_LIST_ID } from "../types";
+import type {
+  LinkedInUser,
+  LinkedInOrg,
+  LinkedInEntity,
+  ExtensionMessage,
+  TagList,
+  StorageData,
+  Settings,
+} from "../types";
+import { DEFAULT_LIST_ID, DEFAULT_SETTINGS } from "../types";
 
 // Type guard functions
 function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
@@ -514,21 +522,43 @@ function injectAddButton() {
 // Tag insertion into editor
 // ============================================
 
-function createUserTagHtml(user: LinkedInUser): string {
-  const guid = generateGuid();
-  return `<a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_profile:${user.entityUrn}" data-guid="${guid}" data-object-urn="urn:li:member:${user.memberId}" data-original-text="${user.displayName}" spellcheck="false" data-test-ql-mention="true">${user.displayName}</a>`;
+// Helper function to truncate name based on word limit
+function truncateName(fullName: string, wordLimit: number): string {
+  if (wordLimit === 0) return fullName; // 0 means no limit
+
+  const words = fullName.trim().split(/\s+/);
+  return words.slice(0, wordLimit).join(" ");
 }
 
-function createOrgTagHtml(org: LinkedInOrg): string {
-  const guid = generateGuid();
-  return `<a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_company:${org.companyId}" data-guid="${guid}" data-object-urn="urn:li:company:${org.companyId}" data-original-text="${org.displayName}" spellcheck="false" data-test-ql-mention="true">${org.displayName}</a>`;
+// Get global settings
+async function getGlobalSettings(): Promise<Settings> {
+  const storage = await chrome.storage.local.get("settings");
+  return storage.settings || DEFAULT_SETTINGS;
 }
 
-function createEntityTagHtml(entity: LinkedInEntity): string {
+async function createUserTagHtml(user: LinkedInUser): Promise<string> {
+  const settings = await getGlobalSettings();
+  const displayName = truncateName(user.displayName, settings.nameWordLimit);
+
+  // Don't use LinkedIn's URNs - use plain text mention instead
+  // This prevents LinkedIn from fetching and replacing with full name
+  return `<strong>${displayName}</strong>`;
+}
+
+async function createOrgTagHtml(org: LinkedInOrg): Promise<string> {
+  const settings = await getGlobalSettings();
+  const displayName = truncateName(org.displayName, settings.nameWordLimit);
+
+  // Don't use LinkedIn's URNs - use plain text mention instead
+  // This prevents LinkedIn from fetching and replacing with full name
+  return `<strong>${displayName}</strong>`;
+}
+
+async function createEntityTagHtml(entity: LinkedInEntity): Promise<string> {
   if (isLinkedInUser(entity)) {
-    return createUserTagHtml(entity);
+    return await createUserTagHtml(entity);
   } else {
-    return createOrgTagHtml(entity);
+    return await createOrgTagHtml(entity);
   }
 }
 
@@ -563,13 +593,13 @@ function findEditor(): HTMLElement | null {
 }
 
 // Insert tags into the post editor (legacy function for backward compatibility)
-function insertTagsIntoEditor(users: LinkedInUser[]) {
+async function insertTagsIntoEditor(users: LinkedInUser[]) {
   const entities: LinkedInEntity[] = users.map((u) => ({ ...u, type: "user" as const }));
-  insertEntitiesIntoEditor(entities);
+  await insertEntitiesIntoEditor(entities);
 }
 
 // Insert entities (users + orgs) into the post editor
-function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
+async function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
   const editor = findEditor();
 
   if (!editor) {
@@ -697,8 +727,8 @@ function createEditorInsertWidget(): HTMLDivElement {
       showToast("No tags in this list", "error");
       return;
     }
-    
-    insertEntitiesIntoEditor(entities);
+
+    await insertEntitiesIntoEditor(entities);
     dropdown.classList.remove("show");
   });
 

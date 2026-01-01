@@ -1,5 +1,6 @@
-import type { LinkedInUser, LinkedInOrg, LinkedInEntity, InsertTagsMessage, TagList, StorageData } from "../types";
-import { DEFAULT_LIST_ID } from "../types";
+import type { LinkedInUser, LinkedInOrg, LinkedInEntity, InsertTagsMessage, TagList, StorageData, Settings } from "../types";
+import { DEFAULT_LIST_ID, DEFAULT_SETTINGS } from "../types";
+import { SETTINGS_CONFIG } from "./settings-config";
 
 // Type guard functions
 function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
@@ -55,6 +56,11 @@ const listForm = document.getElementById("list-form") as HTMLFormElement;
 const listNameInput = document.getElementById("list-name-input") as HTMLInputElement;
 const closeFormModalBtn = document.getElementById("close-form-modal-btn") as HTMLButtonElement;
 const cancelFormBtn = document.getElementById("cancel-form-btn") as HTMLButtonElement;
+const settingsPage = document.getElementById("settings-page") as HTMLDivElement;
+const settingsBtn = document.getElementById("settings-btn") as HTMLButtonElement;
+const backBtn = document.getElementById("back-btn") as HTMLButtonElement;
+const settingsContent = document.getElementById("settings-content") as HTMLDivElement;
+const settingsSaveIndicator = document.getElementById("settings-save-indicator") as HTMLSpanElement;
 
 // State
 let currentListId: string = DEFAULT_LIST_ID;
@@ -62,6 +68,7 @@ let contextMenuUserIndex: number | null = null;
 let pendingAction: "copy" | "move" | null = null;
 let editingListId: string | null = null;
 let draggedIndex: number | null = null;
+let saveDebounceTimer: number | null = null;
 
 // Migrate legacy storage format to new format
 async function migrateStorageIfNeeded(): Promise<void> {
@@ -713,6 +720,135 @@ listFormModal.addEventListener("click", (e) => {
   }
 });
 
+// Settings Page
+async function renderSettingsPage() {
+  settingsContent.innerHTML = "";
+
+  // Load current settings
+  const storage = await chrome.storage.local.get("settings");
+  const currentSettings = storage.settings || DEFAULT_SETTINGS;
+
+  // Render each category
+  SETTINGS_CONFIG.forEach((category) => {
+    const categoryEl = document.createElement("div");
+    categoryEl.className = "setting-category";
+
+    // Category title
+    const titleEl = document.createElement("div");
+    titleEl.className = "setting-category-title";
+    titleEl.textContent = category.title;
+    categoryEl.appendChild(titleEl);
+
+    // Category description (if exists)
+    if (category.description) {
+      const descEl = document.createElement("div");
+      descEl.className = "setting-category-description";
+      descEl.textContent = category.description;
+      categoryEl.appendChild(descEl);
+    }
+
+    // Divider
+    const divider = document.createElement("div");
+    divider.className = "setting-divider";
+    categoryEl.appendChild(divider);
+
+    // Render each setting in category
+    category.settings.forEach((setting) => {
+      const rowEl = document.createElement("div");
+      rowEl.className = "setting-row";
+
+      // Setting info
+      const infoEl = document.createElement("div");
+      infoEl.className = "setting-info";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "setting-name";
+      nameEl.textContent = setting.name;
+      infoEl.appendChild(nameEl);
+
+      const descEl = document.createElement("div");
+      descEl.className = "setting-description";
+      descEl.textContent = setting.description;
+      infoEl.appendChild(descEl);
+
+      rowEl.appendChild(infoEl);
+
+      // Setting control
+      const controlEl = document.createElement("div");
+      controlEl.className = "setting-control";
+
+      if (setting.type === "number") {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.id = `setting-${setting.id}`;
+        input.value = String(currentSettings[setting.id as keyof Settings] ?? setting.defaultValue);
+        if (setting.min !== undefined) input.min = String(setting.min);
+        if (setting.max !== undefined) input.max = String(setting.max);
+        if (setting.step !== undefined) input.step = String(setting.step);
+        if (setting.placeholder) input.placeholder = setting.placeholder;
+
+        // Auto-save on change
+        input.addEventListener("change", async () => {
+          await saveSettings();
+        });
+
+        controlEl.appendChild(input);
+      }
+
+      rowEl.appendChild(controlEl);
+      categoryEl.appendChild(rowEl);
+    });
+
+    settingsContent.appendChild(categoryEl);
+  });
+}
+
+function saveSettings() {
+  // Clear any pending save
+  if (saveDebounceTimer !== null) {
+    clearTimeout(saveDebounceTimer);
+  }
+
+  // Debounce the save operation
+  saveDebounceTimer = window.setTimeout(async () => {
+    const settings: Settings = { ...DEFAULT_SETTINGS };
+
+    // Collect all setting values
+    SETTINGS_CONFIG.forEach((category) => {
+      category.settings.forEach((setting) => {
+        const input = document.getElementById(`setting-${setting.id}`) as HTMLInputElement;
+        if (input) {
+          if (setting.type === "number") {
+            const value = parseInt(input.value, 10);
+            if (!isNaN(value) && value >= (setting.min ?? -Infinity)) {
+              settings[setting.id as keyof Settings] = value as any;
+            }
+          }
+        }
+      });
+    });
+
+    await chrome.storage.local.set({ settings });
+
+    // Show save indicator
+    settingsSaveIndicator.classList.remove("hidden");
+
+    // Hide save indicator after 2 seconds
+    window.setTimeout(() => {
+      settingsSaveIndicator.classList.add("hidden");
+    }, 2000);
+  }, 600); // 600ms debounce delay
+}
+
+function showSettingsPage() {
+  renderSettingsPage();
+  settingsPage.classList.remove("hidden");
+}
+
+function hideSettingsPage() {
+  settingsPage.classList.add("hidden");
+}
+
 listForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   
@@ -787,6 +923,16 @@ closeManagementBtn.addEventListener("click", () => {
 // Add new list button
 addListBtn.addEventListener("click", () => {
   showListFormModal("create");
+});
+
+// Settings button
+settingsBtn.addEventListener("click", () => {
+  showSettingsPage();
+});
+
+// Back button from settings
+backBtn.addEventListener("click", () => {
+  hideSettingsPage();
 });
 
 // Event listeners
