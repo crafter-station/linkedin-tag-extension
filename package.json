@@ -1,0 +1,17 @@
+{
+  "name": "linkedin-tag-extension",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "bun run build.ts",
+    "watch": "bun run build.ts --watch"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "chrome-types": "^0.1.403"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
