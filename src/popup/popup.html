@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Tag Helper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-left">
+        <h1>Tag List</h1>
+        <span id="count" class="count">0</span>
+      </div>
+      <button id="manage-lists-btn" class="icon-btn" title="Manage lists">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- List Selector -->
+    <div class="list-selector">
+      <select id="list-select">
+        <!-- Options populated by JS -->
+      </select>
+      <button id="add-list-btn" class="icon-btn small" title="Create new list">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- List Management Panel (hidden by default) -->
+    <div id="list-management" class="list-management hidden">
+      <div class="panel-header">
+        <h2>Manage Lists</h2>
+        <button id="close-management-btn" class="icon-btn small" title="Close">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <ul id="lists-list" class="lists-list">
+        <!-- Lists populated by JS -->
+      </ul>
+    </div>
+
+    <main>
+      <ul id="user-list" class="user-list">
+        <li class="empty-state">No users added yet. Visit a LinkedIn profile and click "+ Tag" to add users.</li>
+      </ul>
+    </main>
+
+    <!-- Context Menu for User Actions -->
+    <div id="user-context-menu" class="context-menu hidden">
+      <button class="context-menu-item" data-action="copy">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        Copy to list...
+      </button>
+      <button class="context-menu-item" data-action="move">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14"></path>
+          <path d="M12 5l7 7-7 7"></path>
+        </svg>
+        Move to list...
+      </button>
+      <div class="context-menu-divider"></div>
+      <button class="context-menu-item danger" data-action="delete">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Remove from list
+      </button>
+    </div>
+
+    <!-- List Picker Modal -->
+    <div id="list-picker-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Select List</h3>
+          <button id="close-modal-btn" class="icon-btn small" title="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <ul id="modal-list-options" class="modal-list-options">
+          <!-- Populated by JS -->
+        </ul>
+      </div>
+    </div>
+
+    <!-- Create/Edit List Modal -->
+    <div id="list-form-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="list-form-title">Create List</h3>
+          <button id="close-form-modal-btn" class="icon-btn small" title="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <form id="list-form">
+          <input type="text" id="list-name-input" placeholder="List name" required maxlength="50">
+          <div class="form-actions">
+            <button type="button" id="cancel-form-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <footer>
+      <button id="insert-btn" class="btn btn-primary" disabled>Insert Tags</button>
+      <button id="clear-btn" class="btn btn-secondary">Clear List</button>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
