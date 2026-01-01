@@ -1,0 +1,275 @@
+/* Wrapper for button and dropdown */
+.linkedin-tag-helper-wrapper {
+  display: inline-flex;
+  position: relative;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+/* Add to Tags Button */
+.linkedin-tag-helper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0a66c2;
+  background-color: transparent;
+  border: 1px solid #0a66c2;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.linkedin-tag-helper-btn:hover {
+  background-color: rgba(10, 102, 194, 0.1);
+}
+
+.linkedin-tag-helper-btn.added {
+  color: #057642;
+  border-color: #057642;
+  background-color: rgba(5, 118, 66, 0.1);
+}
+
+.linkedin-tag-helper-list-name {
+  font-weight: 400;
+  opacity: 0.8;
+  font-size: 11px;
+}
+
+/* Dropdown */
+.linkedin-tag-helper-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 160px;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10001;
+  overflow: hidden;
+}
+
+.linkedin-tag-helper-dropdown.show {
+  display: block;
+}
+
+.linkedin-tag-helper-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #191919;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.linkedin-tag-helper-dropdown-item:hover {
+  background-color: #f3f6f8;
+}
+
+.linkedin-tag-helper-dropdown-item.selected {
+  background-color: #e8f4fd;
+  color: #0a66c2;
+}
+
+.linkedin-tag-helper-dropdown-item:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Toast Notification */
+.linkedin-tag-helper-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.3s ease;
+}
+
+.linkedin-tag-helper-toast.success {
+  background-color: #057642;
+}
+
+.linkedin-tag-helper-toast.error {
+  background-color: #cc1016;
+}
+
+.linkedin-tag-helper-toast.info {
+  background-color: #0a66c2;
+}
+
+.linkedin-tag-helper-toast.fade-out {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+  transition: all 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ============================================
+   Editor Widget (In-page Insert Tags)
+   ============================================ */
+
+.linkedin-tag-helper-editor-widget {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  z-index: 100;
+}
+
+.linkedin-tag-helper-editor-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  background-color: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.linkedin-tag-helper-editor-btn:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: #191919;
+}
+
+.linkedin-tag-helper-editor-btn svg {
+  flex-shrink: 0;
+}
+
+.linkedin-tag-helper-editor-btn-text,
+.linkedin-tag-helper-editor-btn-arrow {
+  display: none;
+}
+
+/* Editor Dropdown Panel */
+.linkedin-tag-helper-editor-dropdown {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 100%;
+  margin-bottom: 4px;
+  width: 220px;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 10002;
+  overflow: hidden;
+}
+
+.linkedin-tag-helper-editor-dropdown.show {
+  display: block;
+}
+
+.linkedin-tag-helper-editor-dropdown-header {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+}
+
+.linkedin-tag-helper-editor-select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #191919;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.linkedin-tag-helper-editor-select:hover {
+  border-color: #ccc;
+}
+
+.linkedin-tag-helper-editor-select:focus {
+  border-color: #0a66c2;
+}
+
+/* User List */
+.linkedin-tag-helper-editor-userlist {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.linkedin-tag-helper-editor-user {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.linkedin-tag-helper-editor-user:last-child {
+  border-bottom: none;
+}
+
+.linkedin-tag-helper-editor-user-name {
+  color: #191919;
+  font-weight: 500;
+}
+
+.linkedin-tag-helper-editor-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #666;
+  font-size: 13px;
+}
+
+/* Insert Button */
+.linkedin-tag-helper-editor-insert-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background-color: #0a66c2;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.linkedin-tag-helper-editor-insert-btn:hover:not(:disabled) {
+  background-color: #004182;
+}
+
+.linkedin-tag-helper-editor-insert-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
