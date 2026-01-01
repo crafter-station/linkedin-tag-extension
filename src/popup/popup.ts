@@ -133,11 +133,8 @@ async function getCurrentList(): Promise<TagList | undefined> {
 // Get entities from a list, with fallback to users for backward compatibility
 function getListEntities(list: TagList | undefined): LinkedInEntity[] {
   if (!list) return [];
-  if (list.entities && list.entities.length > 0) {
-    return list.entities;
-  }
-  // Fallback to users array for backward compatibility
-  return list.users.map((u) => ({ ...u, type: "user" as const }));
+  // Use entities array if it exists, otherwise fall back to users array
+  return list.entities ?? list.users.map((u) => ({ ...u, type: "user" as const }));
 }
 
 // Load and render entities for current list
@@ -793,6 +790,18 @@ async function renderSettingsPage() {
         });
 
         controlEl.appendChild(input);
+      } else if (setting.type === "toggle") {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = `setting-${setting.id}`;
+        checkbox.checked = Boolean(currentSettings[setting.id as keyof Settings] ?? setting.defaultValue);
+
+        // Auto-save on change
+        checkbox.addEventListener("change", async () => {
+          await saveSettings();
+        });
+
+        controlEl.appendChild(checkbox);
       }
 
       rowEl.appendChild(controlEl);
@@ -821,8 +830,10 @@ function saveSettings() {
           if (setting.type === "number") {
             const value = parseInt(input.value, 10);
             if (!isNaN(value) && value >= (setting.min ?? -Infinity)) {
-              settings[setting.id as keyof Settings] = value as any;
+              (settings as any)[setting.id] = value;
             }
+          } else if (setting.type === "toggle") {
+            (settings as any)[setting.id] = input.checked;
           }
         }
       });

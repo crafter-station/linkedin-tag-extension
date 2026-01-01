@@ -34,6 +34,13 @@ export const SETTINGS_CONFIG: SettingCategory[] = [
         step: 1,
         placeholder: "0",
       },
+      {
+        id: "truncateOrgNames",
+        name: "Truncate Organization Names",
+        description: "Apply word limit to organization/company names",
+        type: "toggle",
+        defaultValue: false,
+      },
     ],
   },
   // Future categories can be added here easily

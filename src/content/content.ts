@@ -547,7 +547,11 @@ async function createUserTagHtml(user: LinkedInUser): Promise<string> {
 
 async function createOrgTagHtml(org: LinkedInOrg): Promise<string> {
   const settings = await getGlobalSettings();
-  const displayName = truncateName(org.displayName, settings.nameWordLimit);
+
+  // Only truncate org names if the setting is enabled
+  const displayName = settings.truncateOrgNames
+    ? truncateName(org.displayName, settings.nameWordLimit)
+    : org.displayName;
 
   // Don't use LinkedIn's URNs - use plain text mention instead
   // This prevents LinkedIn from fetching and replacing with full name
@@ -608,7 +612,10 @@ async function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
   }
 
   // Create the HTML for all tags, comma-separated
-  const tagsHtml = entities.map((e) => createEntityTagHtml(e)).join(", ");
+  const tagsHtmlArray = await Promise.all(
+    entities.map((e) => createEntityTagHtml(e))
+  );
+  const tagsHtml = tagsHtmlArray.join(", ");
 
   // Get or create paragraph
   let paragraph = editor.querySelector("p");
@@ -841,7 +848,12 @@ function removeEditorWidget() {
 chrome.runtime.onMessage.addListener(
   (message: ExtensionMessage, _sender, sendResponse) => {
     if (message.type === "insertTags") {
-      insertTagsIntoEditor(message.users);
+      // Use entities if available, otherwise fall back to users
+      if (message.entities && message.entities.length > 0) {
+        insertEntitiesIntoEditor(message.entities);
+      } else {
+        insertTagsIntoEditor(message.users);
+      }
       sendResponse({ success: true });
     }
     return true;
