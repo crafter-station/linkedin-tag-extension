@@ -9,18 +9,10 @@ import type {
 } from "../types";
 import { DEFAULT_LIST_ID, DEFAULT_SETTINGS } from "../types";
 
-// Debounce utility - prevents function from being called too frequently
-function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  return ((...args: unknown[]) => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    timeoutId = setTimeout(() => {
-      fn(...args);
-      timeoutId = null;
-    }, delay);
-  }) as T;
+// GUID counter for mention elements
+let guidCounter = 1;
+function generateGuid(): string {
+  return String(guidCounter++);
 }
 
 // Debounce utility - prevents function from being called too frequently
@@ -41,9 +33,6 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number):
 function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
   return entity.type === "user";
 }
-
-// Migration state - only check once per page load
-let migrationComplete = false;
 
 // Migration state - only check once per page load
 let migrationComplete = false;
@@ -643,33 +632,28 @@ async function getGlobalSettings(): Promise<Settings> {
   return storage.settings || DEFAULT_SETTINGS;
 }
 
-async function createUserTagHtml(user: LinkedInUser): Promise<string> {
-  const settings = await getGlobalSettings();
+function createUserTagHtml(user: LinkedInUser, settings: Settings): string {
   const displayName = truncateName(user.displayName, settings.nameWordLimit);
-
-  // Don't use LinkedIn's URNs - use plain text mention instead
-  // This prevents LinkedIn from fetching and replacing with full name
-  return `<strong>${displayName}</strong>`;
+  const guid = generateGuid();
+  // Use LinkedIn's Quill mention format with proper data attributes
+  return `<a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_profile:${user.entityUrn}" data-guid="${guid}" data-object-urn="urn:li:member:${user.memberId}" data-original-text="${escapeHtml(displayName)}" spellcheck="false" data-test-ql-mention="true">${escapeHtml(displayName)}</a>`;
 }
 
-async function createOrgTagHtml(org: LinkedInOrg): Promise<string> {
-  const settings = await getGlobalSettings();
-
+function createOrgTagHtml(org: LinkedInOrg, settings: Settings): string {
   // Only truncate org names if the setting is enabled
   const displayName = settings.truncateOrgNames
     ? truncateName(org.displayName, settings.nameWordLimit)
     : org.displayName;
-
-  // Don't use LinkedIn's URNs - use plain text mention instead
-  // This prevents LinkedIn from fetching and replacing with full name
-  return `<strong>${displayName}</strong>`;
+  const guid = generateGuid();
+  // Use LinkedIn's Quill mention format with proper data attributes
+  return `<a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_company:${org.companyId}" data-guid="${guid}" data-object-urn="urn:li:company:${org.companyId}" data-original-text="${escapeHtml(displayName)}" spellcheck="false" data-test-ql-mention="true">${escapeHtml(displayName)}</a>`;
 }
 
-async function createEntityTagHtml(entity: LinkedInEntity): Promise<string> {
+function createEntityTagHtml(entity: LinkedInEntity, settings: Settings): string {
   if (isLinkedInUser(entity)) {
-    return await createUserTagHtml(entity);
+    return createUserTagHtml(entity, settings);
   } else {
-    return await createOrgTagHtml(entity);
+    return createOrgTagHtml(entity, settings);
   }
 }
 
@@ -718,11 +702,9 @@ async function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
     return;
   }
 
-  // Create the HTML for all tags, comma-separated
-  const tagsHtmlArray = await Promise.all(
-    entities.map((e) => createEntityTagHtml(e))
-  );
-  const tagsHtml = tagsHtmlArray.join(", ");
+  // Get settings and create the HTML for all tags, comma-separated
+  const settings = await getGlobalSettings();
+  const tagsHtml = entities.map((e) => createEntityTagHtml(e, settings)).join(", ");
 
   // Get or create paragraph
   let paragraph = editor.querySelector("p");
