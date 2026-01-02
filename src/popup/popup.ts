@@ -1,14 +1,10 @@
-import type { LinkedInUser, LinkedInOrg, LinkedInEntity, InsertTagsMessage, TagList, StorageData, Settings } from "../types";
+import type { LinkedInUser, LinkedInEntity, InsertTagsMessage, TagList, StorageData, Settings } from "../types";
 import { DEFAULT_LIST_ID, DEFAULT_SETTINGS } from "../types";
 import { SETTINGS_CONFIG } from "./settings-config";
 
 // Type guard functions
 function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
   return entity.type === "user";
-}
-
-function isLinkedInOrg(entity: LinkedInEntity): entity is LinkedInOrg {
-  return entity.type === "org";
 }
 
 // Get entity unique identifier for comparison
