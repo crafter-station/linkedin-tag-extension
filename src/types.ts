@@ -14,6 +14,17 @@ export interface LinkedInOrg {
 
 export type LinkedInEntity = LinkedInUser | LinkedInOrg;
 
+// Global settings
+export interface Settings {
+  nameWordLimit: number; // 0 = no limit (full name), 1+ = number of words to show
+  truncateOrgNames: boolean; // Apply word limit to organizations
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  nameWordLimit: 0, // Full name by default
+  truncateOrgNames: false, // Don't truncate org names by default
+};
+
 export interface TagList {
   id: string;
   name: string;
@@ -27,6 +38,7 @@ export const DEFAULT_LIST_ID = "default";
 export interface StorageData {
   lists: TagList[];
   selectedListId: string;
+  settings?: Settings; // Global settings
 }
 
 // Legacy storage format for migration

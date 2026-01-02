@@ -1,5 +1,27 @@
-import type { LinkedInUser, LinkedInOrg, LinkedInEntity, ExtensionMessage, TagList, StorageData } from "../types";
-import { DEFAULT_LIST_ID } from "../types";
+import type {
+  LinkedInUser,
+  LinkedInOrg,
+  LinkedInEntity,
+  ExtensionMessage,
+  TagList,
+  StorageData,
+  Settings,
+} from "../types";
+import { DEFAULT_LIST_ID, DEFAULT_SETTINGS } from "../types";
+
+// Debounce utility - prevents function from being called too frequently
+function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: unknown[]) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      fn(...args);
+      timeoutId = null;
+    }, delay);
+  }) as T;
+}
 
 // Debounce utility - prevents function from being called too frequently
 function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
@@ -20,15 +42,8 @@ function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
   return entity.type === "user";
 }
 
-function isLinkedInOrg(entity: LinkedInEntity): entity is LinkedInOrg {
-  return entity.type === "org";
-}
-
-// Generate unique GUID for mentions
-let guidCounter = 0;
-function generateGuid(): string {
-  return String(guidCounter++);
-}
+// Migration state - only check once per page load
+let migrationComplete = false;
 
 // Migration state - only check once per page load
 let migrationComplete = false;
@@ -614,21 +629,47 @@ function injectAddButton() {
 // Tag insertion into editor
 // ============================================
 
-function createUserTagHtml(user: LinkedInUser): string {
-  const guid = generateGuid();
-  return `<a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_profile:${user.entityUrn}" data-guid="${guid}" data-object-urn="urn:li:member:${user.memberId}" data-original-text="${user.displayName}" spellcheck="false" data-test-ql-mention="true">${user.displayName}</a>`;
+// Helper function to truncate name based on word limit
+function truncateName(fullName: string, wordLimit: number): string {
+  if (wordLimit === 0) return fullName; // 0 means no limit
+
+  const words = fullName.trim().split(/\s+/);
+  return words.slice(0, wordLimit).join(" ");
 }
 
-function createOrgTagHtml(org: LinkedInOrg): string {
-  const guid = generateGuid();
-  return `<a class="ql-mention" href="#" data-entity-urn="urn:li:fsd_company:${org.companyId}" data-guid="${guid}" data-object-urn="urn:li:company:${org.companyId}" data-original-text="${org.displayName}" spellcheck="false" data-test-ql-mention="true">${org.displayName}</a>`;
+// Get global settings
+async function getGlobalSettings(): Promise<Settings> {
+  const storage = await chrome.storage.local.get("settings");
+  return storage.settings || DEFAULT_SETTINGS;
 }
 
-function createEntityTagHtml(entity: LinkedInEntity): string {
+async function createUserTagHtml(user: LinkedInUser): Promise<string> {
+  const settings = await getGlobalSettings();
+  const displayName = truncateName(user.displayName, settings.nameWordLimit);
+
+  // Don't use LinkedIn's URNs - use plain text mention instead
+  // This prevents LinkedIn from fetching and replacing with full name
+  return `<strong>${displayName}</strong>`;
+}
+
+async function createOrgTagHtml(org: LinkedInOrg): Promise<string> {
+  const settings = await getGlobalSettings();
+
+  // Only truncate org names if the setting is enabled
+  const displayName = settings.truncateOrgNames
+    ? truncateName(org.displayName, settings.nameWordLimit)
+    : org.displayName;
+
+  // Don't use LinkedIn's URNs - use plain text mention instead
+  // This prevents LinkedIn from fetching and replacing with full name
+  return `<strong>${displayName}</strong>`;
+}
+
+async function createEntityTagHtml(entity: LinkedInEntity): Promise<string> {
   if (isLinkedInUser(entity)) {
-    return createUserTagHtml(entity);
+    return await createUserTagHtml(entity);
   } else {
-    return createOrgTagHtml(entity);
+    return await createOrgTagHtml(entity);
   }
 }
 
@@ -663,13 +704,13 @@ function findEditor(): HTMLElement | null {
 }
 
 // Insert tags into the post editor (legacy function for backward compatibility)
-function insertTagsIntoEditor(users: LinkedInUser[]) {
+async function insertTagsIntoEditor(users: LinkedInUser[]) {
   const entities: LinkedInEntity[] = users.map((u) => ({ ...u, type: "user" as const }));
-  insertEntitiesIntoEditor(entities);
+  await insertEntitiesIntoEditor(entities);
 }
 
 // Insert entities (users + orgs) into the post editor
-function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
+async function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
   const editor = findEditor();
 
   if (!editor) {
@@ -678,7 +719,10 @@ function insertEntitiesIntoEditor(entities: LinkedInEntity[]) {
   }
 
   // Create the HTML for all tags, comma-separated
-  const tagsHtml = entities.map((e) => createEntityTagHtml(e)).join(", ");
+  const tagsHtmlArray = await Promise.all(
+    entities.map((e) => createEntityTagHtml(e))
+  );
+  const tagsHtml = tagsHtmlArray.join(", ");
 
   // Get or create paragraph
   let paragraph = editor.querySelector("p");
@@ -711,20 +755,32 @@ function createEditorInsertWidget(): HTMLDivElement {
   widget.className = "linkedin-tag-helper-editor-widget";
   widget.id = "linkedin-tag-helper-editor-widget";
 
-  // Main button
+  // Stop all events from bubbling up to LinkedIn's elements
+  const stopPropagation = (e: Event) => {
+    e.stopPropagation();
+  };
+
+  // Prevent events from reaching LinkedIn's emoji button
+  widget.addEventListener("click", stopPropagation);
+  widget.addEventListener("mousedown", stopPropagation);
+  widget.addEventListener("mouseup", stopPropagation);
+  widget.addEventListener("pointerdown", stopPropagation);
+  widget.addEventListener("pointerup", stopPropagation);
+
+  // Main button - styled to match LinkedIn's native artdeco buttons exactly
   const mainBtn = document.createElement("button");
-  mainBtn.className = "linkedin-tag-helper-editor-btn";
-  mainBtn.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-      <circle cx="12" cy="7" r="4"></circle>
-    </svg>
-    <span class="linkedin-tag-helper-editor-btn-text">Tags</span>
-    <svg class="linkedin-tag-helper-editor-btn-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="6 9 12 15 18 9"></polyline>
-    </svg>
-  `;
+  // Use LinkedIn's actual button classes for perfect match
+  mainBtn.className = "linkedin-tag-helper-editor-btn artdeco-button artdeco-button--circle artdeco-button--muted artdeco-button--2 artdeco-button--tertiary";
+  mainBtn.type = "button";
   mainBtn.title = "Insert tags from list";
+  mainBtn.setAttribute("aria-label", "Insert tags from list");
+  // Using LinkedIn-style SVG structure (24x24)
+  mainBtn.innerHTML = `
+    <svg role="none" aria-hidden="true" class="artdeco-button__icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M15 14H9a5 5 0 00-5 5v2h16v-2a5 5 0 00-5-5zM12 12a4 4 0 100-8 4 4 0 000 8z"></path>
+    </svg>
+    <span class="artdeco-button__text">Insert tags from list</span>
+  `;
 
   // Dropdown panel
   const dropdown = document.createElement("div");
@@ -777,8 +833,12 @@ function createEditorInsertWidget(): HTMLDivElement {
     }
   });
 
-  // List selection change
-  listSelect.addEventListener("change", async () => {
+  // List selection change - stop propagation on all events
+  listSelect.addEventListener("click", stopPropagation);
+  listSelect.addEventListener("mousedown", stopPropagation);
+  listSelect.addEventListener("focus", stopPropagation);
+  listSelect.addEventListener("change", async (e) => {
+    e.stopPropagation();
     const selectedListId = listSelect.value;
     await chrome.storage.local.set({ selectedListId });
     await updateEditorWidgetUserList(userList, insertBtn);
@@ -797,8 +857,8 @@ function createEditorInsertWidget(): HTMLDivElement {
       showToast("No tags in this list", "error");
       return;
     }
-    
-    insertEntitiesIntoEditor(entities);
+
+    await insertEntitiesIntoEditor(entities);
     dropdown.classList.remove("show");
   });
 
@@ -852,15 +912,48 @@ async function updateEditorWidgetUserList(userList: HTMLDivElement, insertBtn: H
 function findEmojiButton(): HTMLElement | null {
   // Look for emoji button by various attributes
   const emojiSelectors = [
+    // Case-insensitive aria-label matching
     'button[aria-label*="emoji" i]',
     'button[aria-label*="Emoji"]',
+    // Test ID
     'button[data-test-id="emoji-button"]',
+    // Look inside dialogs specifically
+    '[role="dialog"] button[aria-label*="emoji" i]',
+    '[role="dialog"] button[aria-label*="Emoji"]',
+    // Spanish/other language labels
+    'button[aria-label*="emoticon" i]',
+    'button[aria-label*="emoticono" i]',
   ];
 
   for (const selector of emojiSelectors) {
     const btn = document.querySelector(selector) as HTMLElement | null;
     if (btn) {
       return btn;
+    }
+  }
+
+  return null;
+}
+
+// Find the editor toolbar to inject widget into
+function findEditorToolbar(): HTMLElement | null {
+  // Look for the toolbar container near the editor
+  const toolbarSelectors = [
+    // Share box toolbar
+    '.share-creation-state__footer',
+    '.share-box_actions',
+    // Editor footer/toolbar  
+    '[role="dialog"] .editor-footer',
+    '[role="dialog"] .share-creation-state__footer',
+    // Generic toolbar near editor
+    '.ql-editor-toolbar',
+    '.editor-toolbar',
+  ];
+
+  for (const selector of toolbarSelectors) {
+    const toolbar = document.querySelector(selector) as HTMLElement | null;
+    if (toolbar) {
+      return toolbar;
     }
   }
 
@@ -880,25 +973,74 @@ function injectEditorWidget() {
     return;
   }
 
-  // Find the emoji button to inject next to it
+  const widget = createEditorInsertWidget();
+
+  // Strategy 1: Find the emoji button and wrap both in a horizontal container
   const emojiButton = findEmojiButton();
-  if (!emojiButton) {
+  if (emojiButton) {
+    // Create a wrapper to hold both buttons horizontally
+    const wrapper = document.createElement("div");
+    wrapper.id = "linkedin-tag-helper-emoji-wrapper";
+    wrapper.style.cssText = "display: flex; flex-direction: row; align-items: center; gap: 0;";
+    
+    // Insert wrapper where emoji button is
+    emojiButton.parentElement?.insertBefore(wrapper, emojiButton);
+    
+    // Move emoji button into wrapper
+    wrapper.appendChild(emojiButton);
+    
+    // Add our widget next to it
+    wrapper.appendChild(widget);
     return;
   }
 
-  const widget = createEditorInsertWidget();
-  
-  // Insert right after the emoji button
-  emojiButton.insertAdjacentElement("afterend", widget);
+  // Strategy 2: Find the editor toolbar and append to it
+  const toolbar = findEditorToolbar();
+  if (toolbar) {
+    toolbar.insertAdjacentElement("beforeend", widget);
+    return;
+  }
+
+  // Strategy 3: Find any button row near the editor and append
+  const dialog = editor.closest('[role="dialog"]');
+  if (dialog) {
+    // Look for button containers in the dialog
+    const buttonContainers = dialog.querySelectorAll('div[class*="footer"], div[class*="actions"], div[class*="toolbar"]');
+    for (const container of buttonContainers) {
+      // Find a good spot - look for a row with buttons
+      const buttons = container.querySelectorAll('button');
+      if (buttons.length > 0) {
+        container.insertAdjacentElement("beforeend", widget);
+        return;
+      }
+    }
+  }
+
+  // Strategy 4: Place near the editor itself as last resort
+  const editorContainer = editor.closest('.ql-container') || editor.parentElement;
+  if (editorContainer) {
+    editorContainer.insertAdjacentElement("afterend", widget);
+  }
 }
 
 // Remove widget when editor closes
 function removeEditorWidget() {
   const widget = document.getElementById("linkedin-tag-helper-editor-widget");
-  if (widget) {
-    // Check if editor still exists
-    const editor = findEditor();
-    if (!editor) {
+  const wrapper = document.getElementById("linkedin-tag-helper-emoji-wrapper");
+  
+  // Check if editor still exists
+  const editor = findEditor();
+  if (!editor) {
+    // Unwrap emoji button if we wrapped it
+    if (wrapper) {
+      const emojiButton = wrapper.querySelector('button[aria-label*="emoji" i], button[aria-label*="Emoji"]');
+      if (emojiButton && wrapper.parentElement) {
+        wrapper.parentElement.insertBefore(emojiButton, wrapper);
+      }
+      wrapper.remove();
+    }
+    
+    if (widget) {
       widget.remove();
     }
   }
@@ -911,7 +1053,12 @@ function removeEditorWidget() {
 chrome.runtime.onMessage.addListener(
   (message: ExtensionMessage, _sender, sendResponse) => {
     if (message.type === "insertTags") {
-      insertTagsIntoEditor(message.users);
+      // Use entities if available, otherwise fall back to users
+      if (message.entities && message.entities.length > 0) {
+        insertEntitiesIntoEditor(message.entities);
+      } else {
+        insertTagsIntoEditor(message.users);
+      }
       sendResponse({ success: true });
     }
     return true;
