@@ -86,6 +86,13 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
+.linkedin-tag-helper-dropdown-loading {
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
 /* Toast Notification */
 .linkedin-tag-helper-toast {
   position: fixed;
@@ -143,31 +150,13 @@
   z-index: 100;
 }
 
-.linkedin-tag-helper-editor-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #666;
-  background-color: transparent;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.linkedin-tag-helper-editor-btn:hover {
-  background-color: rgba(0, 0, 0, 0.08);
-  color: #191919;
+/* Only override what's necessary - let LinkedIn's artdeco classes handle the rest */
+.linkedin-tag-helper-editor-btn.artdeco-button {
+  /* Ensure our button matches LinkedIn's styling */
 }
 
 .linkedin-tag-helper-editor-btn svg {
-  flex-shrink: 0;
+  fill: currentColor;
 }
 
 .linkedin-tag-helper-editor-btn-text,
@@ -180,7 +169,7 @@
   display: none;
   position: absolute;
   bottom: 100%;
-  left: 100%;
+  left: 0;
   margin-bottom: 4px;
   width: 220px;
   background-color: #fff;

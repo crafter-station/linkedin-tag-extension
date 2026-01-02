@@ -9,27 +9,40 @@ import type {
 } from "../types";
 import { DEFAULT_LIST_ID, DEFAULT_SETTINGS } from "../types";
 
+// Debounce utility - prevents function from being called too frequently
+function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: unknown[]) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      fn(...args);
+      timeoutId = null;
+    }, delay);
+  }) as T;
+}
+
 // Type guard functions
 function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
   return entity.type === "user";
 }
 
-function isLinkedInOrg(entity: LinkedInEntity): entity is LinkedInOrg {
-  return entity.type === "org";
-}
-
-// Generate unique GUID for mentions
-let guidCounter = 0;
-function generateGuid(): string {
-  return String(guidCounter++);
-}
+// Migration state - only check once per page load
+let migrationComplete = false;
 
 // Migrate legacy storage format to new format
 async function migrateStorageIfNeeded(): Promise<void> {
+  // Only run migration check once per page load
+  if (migrationComplete) {
+    return;
+  }
+  
   const storage = await chrome.storage.local.get(["lists", "users", "selectedListId"]);
   
   // Check if already migrated (has 'lists' key)
   if (storage.lists) {
+    migrationComplete = true;
     return;
   }
   
@@ -71,16 +84,48 @@ async function migrateStorageIfNeeded(): Promise<void> {
       selectedListId: DEFAULT_LIST_ID,
     });
   }
+  
+  migrationComplete = true;
 }
 
-// Get storage data
-async function getStorageData(): Promise<StorageData> {
+// Cache for storage data - persistent until explicitly invalidated
+let storageCache: StorageData | null = null;
+
+// Get storage data synchronously from cache, or null if not loaded
+function getStorageDataSync(): StorageData | null {
+  return storageCache;
+}
+
+// Load storage data into cache (call once on init)
+async function loadStorageData(): Promise<StorageData> {
   await migrateStorageIfNeeded();
   const storage = await chrome.storage.local.get(["lists", "selectedListId"]);
-  return {
+  
+  storageCache = {
     lists: storage.lists || [],
     selectedListId: storage.selectedListId || DEFAULT_LIST_ID,
   };
+  
+  return storageCache;
+}
+
+// Get storage data - returns cache immediately if available, otherwise loads
+async function getStorageData(): Promise<StorageData> {
+  if (storageCache) {
+    return storageCache;
+  }
+  return loadStorageData();
+}
+
+// Invalidate cache (will reload on next access)
+function invalidateStorageCache(): void {
+  storageCache = null;
+}
+
+// Invalidate and reload cache when storage changes
+async function refreshStorageCache(): Promise<void> {
+  storageCache = null;
+  await loadStorageData();
 }
 
 // Extract entity URN from various sources on the page
@@ -247,8 +292,14 @@ function getEntityCountFromList(list: TagList): number {
   return list.entities?.length ?? list.users.length;
 }
 
-async function updateDropdownContent(dropdown: HTMLDivElement, onSelect: (listId: string) => void) {
-  const { lists, selectedListId } = await getStorageData();
+function updateDropdownContent(dropdown: HTMLDivElement, onSelect: (listId: string) => void) {
+  const data = getStorageDataSync();
+  if (!data) {
+    // Cache not ready yet - will be populated when ready
+    return;
+  }
+  
+  const { lists, selectedListId } = data;
   
   dropdown.innerHTML = lists
     .map((list) => `
@@ -282,19 +333,33 @@ function createAddButton(): HTMLDivElement {
 
   const dropdown = createListSelector();
 
-  updateButtonText(button);
+  // Handler for list selection
+  const onSelectList = async (listId: string) => {
+    await addEntityToList(listId, button);
+    hideDropdown(dropdown);
+  };
 
-  button.addEventListener("click", async (e) => {
+  // Sync function to refresh dropdown from cache
+  const refreshDropdown = () => {
+    updateDropdownContent(dropdown, onSelectList);
+  };
+
+  // Initial setup - cache should already be loaded from init()
+  updateButtonText(button);
+  refreshDropdown();
+
+  // Refresh on hover in case data changed
+  button.addEventListener("mouseenter", refreshDropdown);
+
+  button.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (dropdown.classList.contains("show")) {
       hideDropdown(dropdown);
     } else {
-      await updateDropdownContent(dropdown, async (listId) => {
-        await addEntityToList(listId, button);
-        hideDropdown(dropdown);
-      });
+      // Refresh dropdown content right before showing (sync, uses cache)
+      refreshDropdown();
       showDropdown(dropdown);
     }
   });
@@ -325,8 +390,15 @@ function entityExistsInList(list: TagList, entity: LinkedInEntity): boolean {
   return entities.some((e) => getEntityId(e) === entityId);
 }
 
-async function updateButtonText(button: HTMLButtonElement) {
-  const { lists, selectedListId } = await getStorageData();
+function updateButtonText(button: HTMLButtonElement) {
+  const data = getStorageDataSync();
+  if (!data) {
+    // Cache not ready yet - show default text
+    button.innerHTML = `+ Tag <span class="linkedin-tag-helper-list-name">General</span>`;
+    return;
+  }
+  
+  const { lists, selectedListId } = data;
   const selectedList = lists.find((l) => l.id === selectedListId);
   const listName = selectedList?.name || "General";
   
@@ -405,15 +477,18 @@ async function addEntityToList(listId: string, button: HTMLButtonElement) {
   lists[listIndex] = list;
   
   await chrome.storage.local.set({ lists });
+  
+  // Refresh cache with new data, then update button
+  await refreshStorageCache();
 
   showToast(`Added ${entityData.displayName} to "${list.name}"`, "success");
-  await updateButtonText(button);
+  updateButtonText(button);
 }
 
-async function updateButtonState(wrapper: HTMLDivElement) {
+function updateButtonState(wrapper: HTMLDivElement) {
   const button = wrapper.querySelector("#linkedin-tag-helper-add-btn") as HTMLButtonElement;
   if (button) {
-    await updateButtonText(button);
+    updateButtonText(button);
   }
 }
 
@@ -469,11 +544,26 @@ function injectAddButtonOnProfile() {
 
   const wrapper = createAddButton();
   
-  const parentLink = nameElement.closest("a");
-  if (parentLink) {
-    parentLink.insertAdjacentElement("afterend", wrapper);
+  // Find the network degree indicator (e.g., "1st", "2nd", "3rd") to insert after it
+  // This is typically a span with class containing "distance-badge" or similar
+  const profileSection = nameElement.closest("section[data-member-id]");
+  const degreeIndicator = profileSection?.querySelector(
+    'span.dist-value, span[class*="distance"], .distance-badge, span.artdeco-badge'
+  );
+  
+  if (degreeIndicator) {
+    // Insert after the degree indicator (e.g., "2nd")
+    degreeIndicator.insertAdjacentElement("afterend", wrapper);
   } else {
-    nameElement.insertAdjacentElement("afterend", wrapper);
+    // Fallback: look for the container that holds name + degree
+    const nameContainer = nameElement.parentElement;
+    if (nameContainer) {
+      // Append to the end of the name container row
+      nameContainer.insertAdjacentElement("beforeend", wrapper);
+    } else {
+      // Last resort: insert after the name element itself
+      nameElement.insertAdjacentElement("afterend", wrapper);
+    }
   }
 
   updateButtonState(wrapper);
@@ -648,20 +738,32 @@ function createEditorInsertWidget(): HTMLDivElement {
   widget.className = "linkedin-tag-helper-editor-widget";
   widget.id = "linkedin-tag-helper-editor-widget";
 
-  // Main button
+  // Stop all events from bubbling up to LinkedIn's elements
+  const stopPropagation = (e: Event) => {
+    e.stopPropagation();
+  };
+
+  // Prevent events from reaching LinkedIn's emoji button
+  widget.addEventListener("click", stopPropagation);
+  widget.addEventListener("mousedown", stopPropagation);
+  widget.addEventListener("mouseup", stopPropagation);
+  widget.addEventListener("pointerdown", stopPropagation);
+  widget.addEventListener("pointerup", stopPropagation);
+
+  // Main button - styled to match LinkedIn's native artdeco buttons exactly
   const mainBtn = document.createElement("button");
-  mainBtn.className = "linkedin-tag-helper-editor-btn";
-  mainBtn.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-      <circle cx="12" cy="7" r="4"></circle>
-    </svg>
-    <span class="linkedin-tag-helper-editor-btn-text">Tags</span>
-    <svg class="linkedin-tag-helper-editor-btn-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polyline points="6 9 12 15 18 9"></polyline>
-    </svg>
-  `;
+  // Use LinkedIn's actual button classes for perfect match
+  mainBtn.className = "linkedin-tag-helper-editor-btn artdeco-button artdeco-button--circle artdeco-button--muted artdeco-button--2 artdeco-button--tertiary";
+  mainBtn.type = "button";
   mainBtn.title = "Insert tags from list";
+  mainBtn.setAttribute("aria-label", "Insert tags from list");
+  // Using LinkedIn-style SVG structure (24x24)
+  mainBtn.innerHTML = `
+    <svg role="none" aria-hidden="true" class="artdeco-button__icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M15 14H9a5 5 0 00-5 5v2h16v-2a5 5 0 00-5-5zM12 12a4 4 0 100-8 4 4 0 000 8z"></path>
+    </svg>
+    <span class="artdeco-button__text">Insert tags from list</span>
+  `;
 
   // Dropdown panel
   const dropdown = document.createElement("div");
@@ -714,8 +816,12 @@ function createEditorInsertWidget(): HTMLDivElement {
     }
   });
 
-  // List selection change
-  listSelect.addEventListener("change", async () => {
+  // List selection change - stop propagation on all events
+  listSelect.addEventListener("click", stopPropagation);
+  listSelect.addEventListener("mousedown", stopPropagation);
+  listSelect.addEventListener("focus", stopPropagation);
+  listSelect.addEventListener("change", async (e) => {
+    e.stopPropagation();
     const selectedListId = listSelect.value;
     await chrome.storage.local.set({ selectedListId });
     await updateEditorWidgetUserList(userList, insertBtn);
@@ -789,15 +895,48 @@ async function updateEditorWidgetUserList(userList: HTMLDivElement, insertBtn: H
 function findEmojiButton(): HTMLElement | null {
   // Look for emoji button by various attributes
   const emojiSelectors = [
+    // Case-insensitive aria-label matching
     'button[aria-label*="emoji" i]',
     'button[aria-label*="Emoji"]',
+    // Test ID
     'button[data-test-id="emoji-button"]',
+    // Look inside dialogs specifically
+    '[role="dialog"] button[aria-label*="emoji" i]',
+    '[role="dialog"] button[aria-label*="Emoji"]',
+    // Spanish/other language labels
+    'button[aria-label*="emoticon" i]',
+    'button[aria-label*="emoticono" i]',
   ];
 
   for (const selector of emojiSelectors) {
     const btn = document.querySelector(selector) as HTMLElement | null;
     if (btn) {
       return btn;
+    }
+  }
+
+  return null;
+}
+
+// Find the editor toolbar to inject widget into
+function findEditorToolbar(): HTMLElement | null {
+  // Look for the toolbar container near the editor
+  const toolbarSelectors = [
+    // Share box toolbar
+    '.share-creation-state__footer',
+    '.share-box_actions',
+    // Editor footer/toolbar  
+    '[role="dialog"] .editor-footer',
+    '[role="dialog"] .share-creation-state__footer',
+    // Generic toolbar near editor
+    '.ql-editor-toolbar',
+    '.editor-toolbar',
+  ];
+
+  for (const selector of toolbarSelectors) {
+    const toolbar = document.querySelector(selector) as HTMLElement | null;
+    if (toolbar) {
+      return toolbar;
     }
   }
 
@@ -817,25 +956,74 @@ function injectEditorWidget() {
     return;
   }
 
-  // Find the emoji button to inject next to it
+  const widget = createEditorInsertWidget();
+
+  // Strategy 1: Find the emoji button and wrap both in a horizontal container
   const emojiButton = findEmojiButton();
-  if (!emojiButton) {
+  if (emojiButton) {
+    // Create a wrapper to hold both buttons horizontally
+    const wrapper = document.createElement("div");
+    wrapper.id = "linkedin-tag-helper-emoji-wrapper";
+    wrapper.style.cssText = "display: flex; flex-direction: row; align-items: center; gap: 0;";
+    
+    // Insert wrapper where emoji button is
+    emojiButton.parentElement?.insertBefore(wrapper, emojiButton);
+    
+    // Move emoji button into wrapper
+    wrapper.appendChild(emojiButton);
+    
+    // Add our widget next to it
+    wrapper.appendChild(widget);
     return;
   }
 
-  const widget = createEditorInsertWidget();
-  
-  // Insert right after the emoji button
-  emojiButton.insertAdjacentElement("afterend", widget);
+  // Strategy 2: Find the editor toolbar and append to it
+  const toolbar = findEditorToolbar();
+  if (toolbar) {
+    toolbar.insertAdjacentElement("beforeend", widget);
+    return;
+  }
+
+  // Strategy 3: Find any button row near the editor and append
+  const dialog = editor.closest('[role="dialog"]');
+  if (dialog) {
+    // Look for button containers in the dialog
+    const buttonContainers = dialog.querySelectorAll('div[class*="footer"], div[class*="actions"], div[class*="toolbar"]');
+    for (const container of buttonContainers) {
+      // Find a good spot - look for a row with buttons
+      const buttons = container.querySelectorAll('button');
+      if (buttons.length > 0) {
+        container.insertAdjacentElement("beforeend", widget);
+        return;
+      }
+    }
+  }
+
+  // Strategy 4: Place near the editor itself as last resort
+  const editorContainer = editor.closest('.ql-container') || editor.parentElement;
+  if (editorContainer) {
+    editorContainer.insertAdjacentElement("afterend", widget);
+  }
 }
 
 // Remove widget when editor closes
 function removeEditorWidget() {
   const widget = document.getElementById("linkedin-tag-helper-editor-widget");
-  if (widget) {
-    // Check if editor still exists
-    const editor = findEditor();
-    if (!editor) {
+  const wrapper = document.getElementById("linkedin-tag-helper-emoji-wrapper");
+  
+  // Check if editor still exists
+  const editor = findEditor();
+  if (!editor) {
+    // Unwrap emoji button if we wrapped it
+    if (wrapper) {
+      const emojiButton = wrapper.querySelector('button[aria-label*="emoji" i], button[aria-label*="Emoji"]');
+      if (emojiButton && wrapper.parentElement) {
+        wrapper.parentElement.insertBefore(emojiButton, wrapper);
+      }
+      wrapper.remove();
+    }
+    
+    if (widget) {
       widget.remove();
     }
   }
@@ -864,18 +1052,46 @@ chrome.runtime.onMessage.addListener(
 // Initialization
 // ============================================
 
-function init() {
-  migrateStorageIfNeeded().then(() => {
-    injectAddButton();
-    injectEditorWidget();
-  });
+// Guard flag to prevent concurrent injection attempts
+let isInjecting = false;
 
-  // Observer for SPA navigation and editor dialogs
-  const observer = new MutationObserver(() => {
+function handleDOMChanges() {
+  // Prevent re-entry
+  if (isInjecting) {
+    return;
+  }
+  
+  // Skip if cache not ready yet
+  if (!getStorageDataSync()) {
+    return;
+  }
+  
+  isInjecting = true;
+  try {
     injectAddButton();
     injectEditorWidget();
     removeEditorWidget();
+  } finally {
+    isInjecting = false;
+  }
+}
+
+// Debounced version - waits 200ms after last DOM change before running
+const debouncedHandleDOMChanges = debounce(handleDOMChanges, 200);
+
+function init() {
+  // Listen for storage changes - just invalidate cache (lazy reload on next access)
+  chrome.storage.onChanged.addListener(() => {
+    invalidateStorageCache();
   });
+
+  // Preload storage data, then inject UI
+  loadStorageData().then(() => {
+    handleDOMChanges();
+  });
+
+  // Observer for SPA navigation and editor dialogs (debounced)
+  const observer = new MutationObserver(debouncedHandleDOMChanges);
 
   observer.observe(document.body, {
     childList: true,
