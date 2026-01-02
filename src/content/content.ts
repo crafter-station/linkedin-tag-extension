@@ -1,6 +1,20 @@
 import type { LinkedInUser, LinkedInOrg, LinkedInEntity, ExtensionMessage, TagList, StorageData } from "../types";
 import { DEFAULT_LIST_ID } from "../types";
 
+// Debounce utility - prevents function from being called too frequently
+function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: unknown[]) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = setTimeout(() => {
+      fn(...args);
+      timeoutId = null;
+    }, delay);
+  }) as T;
+}
+
 // Type guard functions
 function isLinkedInUser(entity: LinkedInEntity): entity is LinkedInUser {
   return entity.type === "user";
@@ -16,12 +30,21 @@ function generateGuid(): string {
   return String(guidCounter++);
 }
 
+// Migration state - only check once per page load
+let migrationComplete = false;
+
 // Migrate legacy storage format to new format
 async function migrateStorageIfNeeded(): Promise<void> {
+  // Only run migration check once per page load
+  if (migrationComplete) {
+    return;
+  }
+  
   const storage = await chrome.storage.local.get(["lists", "users", "selectedListId"]);
   
   // Check if already migrated (has 'lists' key)
   if (storage.lists) {
+    migrationComplete = true;
     return;
   }
   
@@ -63,16 +86,48 @@ async function migrateStorageIfNeeded(): Promise<void> {
       selectedListId: DEFAULT_LIST_ID,
     });
   }
+  
+  migrationComplete = true;
 }
 
-// Get storage data
-async function getStorageData(): Promise<StorageData> {
+// Cache for storage data - persistent until explicitly invalidated
+let storageCache: StorageData | null = null;
+
+// Get storage data synchronously from cache, or null if not loaded
+function getStorageDataSync(): StorageData | null {
+  return storageCache;
+}
+
+// Load storage data into cache (call once on init)
+async function loadStorageData(): Promise<StorageData> {
   await migrateStorageIfNeeded();
   const storage = await chrome.storage.local.get(["lists", "selectedListId"]);
-  return {
+  
+  storageCache = {
     lists: storage.lists || [],
     selectedListId: storage.selectedListId || DEFAULT_LIST_ID,
   };
+  
+  return storageCache;
+}
+
+// Get storage data - returns cache immediately if available, otherwise loads
+async function getStorageData(): Promise<StorageData> {
+  if (storageCache) {
+    return storageCache;
+  }
+  return loadStorageData();
+}
+
+// Invalidate cache (will reload on next access)
+function invalidateStorageCache(): void {
+  storageCache = null;
+}
+
+// Invalidate and reload cache when storage changes
+async function refreshStorageCache(): Promise<void> {
+  storageCache = null;
+  await loadStorageData();
 }
 
 // Extract entity URN from various sources on the page
@@ -239,8 +294,14 @@ function getEntityCountFromList(list: TagList): number {
   return list.entities?.length ?? list.users.length;
 }
 
-async function updateDropdownContent(dropdown: HTMLDivElement, onSelect: (listId: string) => void) {
-  const { lists, selectedListId } = await getStorageData();
+function updateDropdownContent(dropdown: HTMLDivElement, onSelect: (listId: string) => void) {
+  const data = getStorageDataSync();
+  if (!data) {
+    // Cache not ready yet - will be populated when ready
+    return;
+  }
+  
+  const { lists, selectedListId } = data;
   
   dropdown.innerHTML = lists
     .map((list) => `
@@ -274,19 +335,33 @@ function createAddButton(): HTMLDivElement {
 
   const dropdown = createListSelector();
 
-  updateButtonText(button);
+  // Handler for list selection
+  const onSelectList = async (listId: string) => {
+    await addEntityToList(listId, button);
+    hideDropdown(dropdown);
+  };
 
-  button.addEventListener("click", async (e) => {
+  // Sync function to refresh dropdown from cache
+  const refreshDropdown = () => {
+    updateDropdownContent(dropdown, onSelectList);
+  };
+
+  // Initial setup - cache should already be loaded from init()
+  updateButtonText(button);
+  refreshDropdown();
+
+  // Refresh on hover in case data changed
+  button.addEventListener("mouseenter", refreshDropdown);
+
+  button.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (dropdown.classList.contains("show")) {
       hideDropdown(dropdown);
     } else {
-      await updateDropdownContent(dropdown, async (listId) => {
-        await addEntityToList(listId, button);
-        hideDropdown(dropdown);
-      });
+      // Refresh dropdown content right before showing (sync, uses cache)
+      refreshDropdown();
       showDropdown(dropdown);
     }
   });
@@ -317,8 +392,15 @@ function entityExistsInList(list: TagList, entity: LinkedInEntity): boolean {
   return entities.some((e) => getEntityId(e) === entityId);
 }
 
-async function updateButtonText(button: HTMLButtonElement) {
-  const { lists, selectedListId } = await getStorageData();
+function updateButtonText(button: HTMLButtonElement) {
+  const data = getStorageDataSync();
+  if (!data) {
+    // Cache not ready yet - show default text
+    button.innerHTML = `+ Tag <span class="linkedin-tag-helper-list-name">General</span>`;
+    return;
+  }
+  
+  const { lists, selectedListId } = data;
   const selectedList = lists.find((l) => l.id === selectedListId);
   const listName = selectedList?.name || "General";
   
@@ -397,15 +479,18 @@ async function addEntityToList(listId: string, button: HTMLButtonElement) {
   lists[listIndex] = list;
   
   await chrome.storage.local.set({ lists });
+  
+  // Refresh cache with new data, then update button
+  await refreshStorageCache();
 
   showToast(`Added ${entityData.displayName} to "${list.name}"`, "success");
-  await updateButtonText(button);
+  updateButtonText(button);
 }
 
-async function updateButtonState(wrapper: HTMLDivElement) {
+function updateButtonState(wrapper: HTMLDivElement) {
   const button = wrapper.querySelector("#linkedin-tag-helper-add-btn") as HTMLButtonElement;
   if (button) {
-    await updateButtonText(button);
+    updateButtonText(button);
   }
 }
 
@@ -461,11 +546,26 @@ function injectAddButtonOnProfile() {
 
   const wrapper = createAddButton();
   
-  const parentLink = nameElement.closest("a");
-  if (parentLink) {
-    parentLink.insertAdjacentElement("afterend", wrapper);
+  // Find the network degree indicator (e.g., "1st", "2nd", "3rd") to insert after it
+  // This is typically a span with class containing "distance-badge" or similar
+  const profileSection = nameElement.closest("section[data-member-id]");
+  const degreeIndicator = profileSection?.querySelector(
+    'span.dist-value, span[class*="distance"], .distance-badge, span.artdeco-badge'
+  );
+  
+  if (degreeIndicator) {
+    // Insert after the degree indicator (e.g., "2nd")
+    degreeIndicator.insertAdjacentElement("afterend", wrapper);
   } else {
-    nameElement.insertAdjacentElement("afterend", wrapper);
+    // Fallback: look for the container that holds name + degree
+    const nameContainer = nameElement.parentElement;
+    if (nameContainer) {
+      // Append to the end of the name container row
+      nameContainer.insertAdjacentElement("beforeend", wrapper);
+    } else {
+      // Last resort: insert after the name element itself
+      nameElement.insertAdjacentElement("afterend", wrapper);
+    }
   }
 
   updateButtonState(wrapper);
@@ -822,18 +922,46 @@ chrome.runtime.onMessage.addListener(
 // Initialization
 // ============================================
 
-function init() {
-  migrateStorageIfNeeded().then(() => {
-    injectAddButton();
-    injectEditorWidget();
-  });
+// Guard flag to prevent concurrent injection attempts
+let isInjecting = false;
 
-  // Observer for SPA navigation and editor dialogs
-  const observer = new MutationObserver(() => {
+function handleDOMChanges() {
+  // Prevent re-entry
+  if (isInjecting) {
+    return;
+  }
+  
+  // Skip if cache not ready yet
+  if (!getStorageDataSync()) {
+    return;
+  }
+  
+  isInjecting = true;
+  try {
     injectAddButton();
     injectEditorWidget();
     removeEditorWidget();
+  } finally {
+    isInjecting = false;
+  }
+}
+
+// Debounced version - waits 200ms after last DOM change before running
+const debouncedHandleDOMChanges = debounce(handleDOMChanges, 200);
+
+function init() {
+  // Listen for storage changes - just invalidate cache (lazy reload on next access)
+  chrome.storage.onChanged.addListener(() => {
+    invalidateStorageCache();
   });
+
+  // Preload storage data, then inject UI
+  loadStorageData().then(() => {
+    handleDOMChanges();
+  });
+
+  // Observer for SPA navigation and editor dialogs (debounced)
+  const observer = new MutationObserver(debouncedHandleDOMChanges);
 
   observer.observe(document.body, {
     childList: true,
