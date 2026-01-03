@@ -1,0 +1,81 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ogBgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0f12"/>
+      <stop offset="50%" style="stop-color:#18181b"/>
+      <stop offset="100%" style="stop-color:#1a1a1f"/>
+    </linearGradient>
+    <linearGradient id="ogLinkedinGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0077B5;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#0077B5;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ogBlueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0077B5"/>
+      <stop offset="100%" style="stop-color:#00A0DC"/>
+    </linearGradient>
+    <pattern id="ogDots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="16" cy="16" r="1" fill="#3f3f46" opacity="0.5"/>
+    </pattern>
+  </defs>
+  
+  <rect width="1200" height="630" fill="url(#ogBgGradient)"/>
+  <rect width="1200" height="630" fill="url(#ogDots)"/>
+  <rect width="1200" height="180" fill="url(#ogLinkedinGlow)"/>
+  
+  <!-- Top accent line -->
+  <rect x="0" y="0" width="1200" height="3" fill="url(#ogBlueGrad)"/>
+  
+  <!-- Vertical content lines -->
+  <rect x="100" y="0" width="1" height="630" fill="#27272a"/>
+  <rect x="1100" y="0" width="1" height="630" fill="#27272a"/>
+  
+  <!-- Decorative corner accents -->
+  <circle cx="100" cy="100" r="4" fill="#0077B5"/>
+  <circle cx="1100" cy="100" r="4" fill="#0077B5" opacity="0.5"/>
+  
+  <g transform="translate(140, 160)">
+    <!-- Badge -->
+    <rect x="0" y="0" width="200" height="36" rx="2" fill="#27272a" stroke="#0077B5" stroke-width="1"/>
+    <text x="16" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#70B5F9">⚡ Chrome Extension</text>
+    
+    <!-- Main title -->
+    <text x="0" y="100" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#fafafa" letter-spacing="-2">Let's Tag Fast</text>
+    
+    <!-- Subtitle -->
+    <text x="0" y="165" font-family="system-ui, -apple-system, sans-serif" font-size="26" fill="#a1a1aa">Tag multiple LinkedIn users in seconds.</text>
+    <text x="0" y="205" font-family="system-ui, -apple-system, sans-serif" font-size="26" fill="#71717a">Collect, organize, insert with one click.</text>
+    
+    <!-- CTA hint -->
+    <rect x="0" y="250" width="180" height="44" rx="2" fill="#0077B5"/>
+    <text x="24" y="279" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="#ffffff">Add to Chrome</text>
+  </g>
+  
+  <!-- Profile cards stack -->
+  <g transform="translate(780, 140)">
+    <rect x="40" y="160" width="260" height="70" rx="4" fill="#1f1f23" stroke="#3f3f46" stroke-width="1"/>
+    <circle cx="80" cy="195" r="20" fill="#0077B5" opacity="0.15"/>
+    <circle cx="80" cy="195" r="14" fill="#0077B5" opacity="0.25"/>
+    <rect x="115" y="182" width="140" height="10" rx="2" fill="#3f3f46"/>
+    <rect x="115" y="200" width="90" height="8" rx="2" fill="#27272a"/>
+    
+    <rect x="20" y="80" width="260" height="70" rx="4" fill="#1f1f23" stroke="#3f3f46" stroke-width="1"/>
+    <circle cx="60" cy="115" r="20" fill="#0077B5" opacity="0.2"/>
+    <circle cx="60" cy="115" r="14" fill="#0077B5" opacity="0.35"/>
+    <rect x="95" y="102" width="150" height="10" rx="2" fill="#52525b"/>
+    <rect x="95" y="120" width="100" height="8" rx="2" fill="#3f3f46"/>
+    
+    <rect x="0" y="0" width="260" height="70" rx="4" fill="#1f1f23" stroke="#0077B5" stroke-width="1" opacity="0.8"/>
+    <circle cx="40" cy="35" r="20" fill="#0077B5" opacity="0.3"/>
+    <circle cx="40" cy="35" r="14" fill="#0077B5" opacity="0.5"/>
+    <rect x="75" y="22" width="160" height="10" rx="2" fill="#52525b"/>
+    <rect x="75" y="40" width="110" height="8" rx="2" fill="#3f3f46"/>
+    <rect x="200" y="25" width="40" height="20" rx="2" fill="#0077B5" opacity="0.3"/>
+    <text x="210" y="40" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#70B5F9">Tag</text>
+  </g>
+  
+  <!-- Bottom accent -->
+  <rect x="0" y="627" width="1200" height="3" fill="url(#ogBlueGrad)" opacity="0.5"/>
+  
+  <!-- URL -->
+  <text x="140" y="580" font-family="ui-monospace, monospace" font-size="14" fill="#52525b">letstag.fast</text>
+</svg>
