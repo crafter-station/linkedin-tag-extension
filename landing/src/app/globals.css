@@ -1,10 +1,75 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --linkedin-blue: #0a66c2;
-  --linkedin-blue-hover: #004182;
+  --radius: 0;
+  --background: oklch(0.98 0.003 240);
+  --foreground: oklch(0.15 0.01 240);
+  --card: oklch(0.99 0.002 240);
+  --card-foreground: oklch(0.15 0.01 240);
+  --popover: oklch(0.99 0.002 240);
+  --popover-foreground: oklch(0.15 0.01 240);
+  --primary: oklch(0.50 0.16 240);
+  --primary-foreground: oklch(0.99 0.002 240);
+  --secondary: oklch(0.96 0.008 240);
+  --secondary-foreground: oklch(0.25 0.015 240);
+  --muted: oklch(0.96 0.008 240);
+  --muted-foreground: oklch(0.5 0.02 240);
+  --accent: oklch(0.60 0.12 240);
+  --accent-foreground: oklch(0.99 0.002 240);
+  --destructive: oklch(0.55 0.2 25);
+  --border: oklch(0.90 0.015 240);
+  --input: oklch(0.90 0.015 240);
+  --ring: oklch(0.50 0.16 240);
+  --chart-1: oklch(0.50 0.16 240);
+  --chart-2: oklch(0.55 0.12 200);
+  --chart-3: oklch(0.4 0.08 240);
+  --chart-4: oklch(0.75 0.15 80);
+  --chart-5: oklch(0.7 0.15 60);
+  --sidebar: oklch(0.98 0.003 240);
+  --sidebar-foreground: oklch(0.15 0.01 240);
+  --sidebar-primary: oklch(0.50 0.16 240);
+  --sidebar-primary-foreground: oklch(0.99 0.002 240);
+  --sidebar-accent: oklch(0.96 0.008 240);
+  --sidebar-accent-foreground: oklch(0.25 0.015 240);
+  --sidebar-border: oklch(0.90 0.015 240);
+  --sidebar-ring: oklch(0.50 0.16 240);
+}
+
+.dark {
+  --background: oklch(0.12 0.015 240);
+  --foreground: oklch(0.95 0.005 240);
+  --card: oklch(0.16 0.018 240);
+  --card-foreground: oklch(0.95 0.005 240);
+  --popover: oklch(0.16 0.018 240);
+  --popover-foreground: oklch(0.95 0.005 240);
+  --primary: oklch(0.65 0.16 240);
+  --primary-foreground: oklch(0.12 0.015 240);
+  --secondary: oklch(0.22 0.02 240);
+  --secondary-foreground: oklch(0.95 0.005 240);
+  --muted: oklch(0.22 0.02 240);
+  --muted-foreground: oklch(0.6 0.02 240);
+  --accent: oklch(0.55 0.14 240);
+  --accent-foreground: oklch(0.99 0.002 240);
+  --destructive: oklch(0.65 0.2 20);
+  --border: oklch(0.28 0.02 240);
+  --input: oklch(0.28 0.02 240);
+  --ring: oklch(0.65 0.16 240);
+  --chart-1: oklch(0.65 0.16 240);
+  --chart-2: oklch(0.65 0.15 200);
+  --chart-3: oklch(0.7 0.15 65);
+  --chart-4: oklch(0.6 0.2 300);
+  --chart-5: oklch(0.6 0.2 20);
+  --sidebar: oklch(0.16 0.018 240);
+  --sidebar-foreground: oklch(0.95 0.005 240);
+  --sidebar-primary: oklch(0.65 0.16 240);
+  --sidebar-primary-foreground: oklch(0.99 0.002 240);
+  --sidebar-accent: oklch(0.22 0.02 240);
+  --sidebar-accent-foreground: oklch(0.95 0.005 240);
+  --sidebar-border: oklch(0.28 0.02 240);
+  --sidebar-ring: oklch(0.65 0.16 240);
 }
 
 @theme inline {
@@ -12,13 +77,43 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: var(--font-jost);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius));
+  --radius-md: calc(var(--radius));
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius));
+  --radius-2xl: calc(var(--radius));
+  --radius-3xl: calc(var(--radius));
+  --radius-4xl: calc(var(--radius));
 }
 
 html {
@@ -26,7 +121,92 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
+
+.animation-delay-400 {
+  animation-delay: 400ms;
+}
+
+.animation-delay-500 {
+  animation-delay: 500ms;
+}
+
+@keyframes spin-once {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-once {
+  animation: spin-once 500ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Dotted grid background with fade */
+.bg-dotted-grid {
+  background-image: 
+    linear-gradient(to bottom, transparent 0%, var(--background) 60%),
+    radial-gradient(oklch(0.75 0.01 240 / 0.35) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
+
+.dark .bg-dotted-grid {
+  background-image: 
+    linear-gradient(to bottom, transparent 0%, var(--background) 60%),
+    radial-gradient(oklch(0.45 0.02 240 / 0.25) 1px, transparent 1px);
+}
+
+/* Circular theme transition */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
 }
