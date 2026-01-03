@@ -1,6 +1,6 @@
 ![hero](public/hero.png)
 
-# Let's Tag Fast
+<h1 align="center">Let's Tag Fast</h1>
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)](https://typescriptlang.org/)
