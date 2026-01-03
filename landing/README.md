@@ -7,7 +7,16 @@
 [![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Bun](https://img.shields.io/badge/Bun-runtime-f9f1e1?logo=bun)](https://bun.sh/)
 
-Landing page for the LinkedIn tagging Chrome extension.
+<p align="center">
+  Bulk tag LinkedIn users in seconds
+  <br />
+  <br />
+  <a href="https://letstag.fast">Website</a>
+  ·
+  <a href="https://github.com/crafter-station/linkedin-tag-extension/issues">Issues</a>
+  ·
+  <a href="https://crafters.chat">Community</a>
+</p>
 
 ## Setup
 
