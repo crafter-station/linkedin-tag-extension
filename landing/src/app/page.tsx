@@ -99,18 +99,13 @@ export default function Home() {
         <div className="mx-auto max-w-2xl px-4">
           <div className="opacity-0 animate-fade-in-up animation-delay-200">
             <div className="aspect-video overflow-hidden rounded-lg shadow-2xl shadow-primary/10">
-              <video
-                className="w-full h-full object-cover [mask-image:linear-gradient(to_bottom,black_90%,transparent)]"
-                autoPlay
-                loop
-                muted
-                playsInline
-                controls
-                poster="/og.png"
-              >
-                <source src="/demo.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
+              <iframe
+                className="w-full h-full"
+                src="https://www.youtube.com/embed/5a_s_mp0pvo"
+                title="Let's Tag Fast Demo"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>
