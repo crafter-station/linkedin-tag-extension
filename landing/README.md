@@ -1,4 +1,11 @@
-# Let's Tag Fast - 
+![hero](public/hero.png)
+
+# Let's Tag Fast
+
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript&logoColor=white)](https://typescriptlang.org/)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Bun](https://img.shields.io/badge/Bun-runtime-f9f1e1?logo=bun)](https://bun.sh/)
 
 Landing page for the LinkedIn tagging Chrome extension.
 
@@ -9,11 +16,6 @@ bun install
 bun dev
 ```
 
-## Generate Assets
-
-```bash
-bun run scripts/generate-assets.ts
-```
 
 ## Tech
 
