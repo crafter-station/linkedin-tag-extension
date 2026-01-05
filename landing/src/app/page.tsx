@@ -83,7 +83,7 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 opacity-0 animate-fade-in-up animation-delay-100">
               <Button asChild size="lg" className="gap-2">
-                <a href="https://chrome.google.com/webstore" target="_blank">
+                <a href="https://chromewebstore.google.com/detail/gfcgmmcnnnopinjhbkglfdelocdofdad?utm_source=item-share-cb" target="_blank">
                   Add to Chrome — Free
                   <ArrowRight className="h-4 w-4" />
                 </a>
@@ -232,7 +232,7 @@ export default function Home() {
               LinkedIn workflow.
             </p>
             <Button asChild size="lg" className="gap-2">
-              <a href="https://chrome.google.com/webstore" target="_blank">
+              <a href="https://chromewebstore.google.com/detail/gfcgmmcnnnopinjhbkglfdelocdofdad?utm_source=item-share-cb" target="_blank">
                 Add to Chrome — Free
                 <ArrowRight className="h-4 w-4" />
               </a>
